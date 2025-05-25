@@ -1,5 +1,0 @@
-1.) Application takes in current date (No date input needed)
-2.) Application provides users with dynamic form
-['Stock', 'Price', 'Weighting', 'If provided allocated $ amount']
-[+] --> If user clicks this the above form input gets added
-3.) Dynamic allocation based on user inputted risk

@@ -1,152 +1,84 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState } from 'react';
+import { getInfo } from './api/fetchInfo';
+import { optimize } from './api/optimize';
 import './App.css';
 
 function App() {
-    const [stocks, setStocks] = useState([]); // {ticker, price}
-    const [inputTicker, setInputTicker] = useState('');
-    const [maxWeight, setMaxWeight] = useState(1);
-    const [maxRisk, setMaxRisk] = useState(1);
-    const [weights, setWeights] = useState([]);
-    const [expected_return, setExpectedReturn] = useState('');
-    const [volatility, setVolatility] = useState('');
-    const [minRisk, setMinRisk] = useState(0);
-    const [error, setError] = useState('');
-    const [warning, setWarning] = useState('');
+    const [tickers, setTickers] = useState([]);
+    const [prices, setPrices] = useState({});
+    const [params, setParams] = useState({
+        start: '2025-01-01',
+        end: '2025-05-25',
+        maxWeight: 0.3,
+        maxRisk: 0.2,
+    });
+    const [results, setResults] = useState({
+        weights: [],
+        expReturns: {},
+        sharpe: 0,
+    });
+    const [loading, setLoading] = useState(false);
 
-    // Check min maxWeight based on number of tickers
-    useEffect(() => {
-        const minWeight = stocks.length > 0 ? 1 / stocks.length : 0;
-        if (maxWeight < minWeight) {
-            setWarning(`Max weight too low. Minimum allowed is ${minWeight.toFixed(3)}`);
-        } else {
-            setWarning('');
+    const addTicker = async (sym) => {
+        if (!tickers.includes(sym)) {
+            setTickers([...tickers, sym]);
+            const info = await getInfo(sym);
+            setPrices(p => ({ ...p, [sym]: info.price }));
         }
-    }, [maxWeight, stocks]);
+    };
 
-    // Trigger optimization when stocks or parameters change and valid
-    useEffect(() => {
-        if (stocks.length === 0) {
-            setWeights([]);
-            return;
-        }
-        if (maxWeight < 1 / stocks.length) {
-            setWeights([]);
-            return;
-        }
-
-        const tickers = stocks.map(s => s.ticker.toUpperCase());
-        const today = new Date().toISOString().slice(0, 10);
-
-        axios.post('/api/optimize', {
-            tickers: tickers,
-            date: today,
-            max_weight: maxWeight,
-            max_risk: maxRisk,
-        }).then(res => {
-            if (res.data.error) {
-                setError(res.data.error);
-                setMinRisk(res.data.min_vol.toFixed(2))
-                setWeights([]);
-            } else {
-                setError('');
-                setWeights(res.data.weights);
-                setExpectedReturn(res.data.expected_return.toFixed(2));
-                setVolatility(res.data.volatility.toFixed(2));
-                setMinRisk(res.data.min_vol.toFixed(2))
-            }
-        }).catch(() => {
-            setError('Optimization failed');
-            setWeights([])
-        });
-    }, [stocks, maxWeight, maxRisk]);
-
-    // Fetch price for ticker, add to stocks list
-    const addTicker = async () => {
-        const ticker = inputTicker.trim().toUpperCase();
-        if (!ticker) return;
-
-        // prevent duplicates
-        if (stocks.find(s => s.ticker === ticker)) {
-            setError(`Ticker ${ticker} already added.`);
-            return;
-        }
-
+    const runOpt = async () => {
+        setLoading(true);
         try {
-            const res = await axios.post('/api/fetch', { ticker });
-            if (res.data.price) {
-                setStocks([...stocks, { ticker, price: res.data.price, sector: res.data.sector, industry: res.data.industry }]);
-                setInputTicker('');
-                setError('');
-            } else {
-                setError(`Could not fetch price for ${ticker}`);
-            }
-        } catch {
-            setError(`Error fetching data for ${ticker}`);
+            const res = await optimize({
+                tickers,
+                start: params.start,
+                end: params.end,
+                max_weight: params.maxWeight,
+                max_risk: params.maxRisk
+            });
+            setResults(res);
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
-        <div className="app-container">
-            <h1>Portfolio Optimizer</h1>
+        <div className="App">
+            {/* … your inputs and sliders here … */}
+            <button onClick={runOpt} disabled={loading || tickers.length===0}>
+                {loading ? 'Running…' : 'Run Optimization'}
+            </button>
 
-            <div className="form-group">
-                <label>New Stock Ticker</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                    <input
-                        type="text"
-                        value={inputTicker}
-                        onChange={e => setInputTicker(e.target.value)}
-                        placeholder="Enter ticker (e.g. AAPL)"
-                        onKeyDown={e => e.key === 'Enter' && addTicker()}
-                    />
-                    <button onClick={addTicker} className="submit-btn">Add Stock</button>
-                </div>
+            <div className="results">
+                <h2>Metrics</h2>
+                <p>Sharpe Ratio: {results.sharpe.toFixed(3)}</p>
+
+                <h2>Weights</h2>
+                {results.weights.length === 0
+                    ? <p>No weights yet.</p>
+                    : (
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>Ticker</th><th>Weight</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {results.weights.map(([ticker, weight]) => (
+                                <tr key={ticker}>
+                                    <td>{ticker}</td>
+                                    <td>
+                                        {typeof weight === 'number'
+                                            ? (weight * 100).toFixed(2) + '%'
+                                            : '—'}
+                                    </td>
+                                </tr>
+                            ))}
+                            </tbody>
+                        </table>
+                    )}
             </div>
-
-            <div className="stocks-list">
-                {stocks.length === 0 && <p>No stocks added yet.</p>}
-                {stocks.map((s, i) => (
-                    <div key={i} className="stock-item">
-                        <strong>{s.ticker}</strong>: ${s.price.toFixed(2)}
-                        {weights.length === stocks.length && weights[i] !== undefined && (
-                            <span> — Weight: {(weights[i] * 100).toFixed(2)}%</span>
-                        )}
-                    </div>
-                ))}
-            </div>
-
-            <div className="form-group">
-                <label>Max Weight per Stock</label>
-                <input
-                    type="number"
-                    min={0}
-                    max={1}
-                    step={0.01}
-                    value={maxWeight}
-                    onChange={e => setMaxWeight(parseFloat(e.target.value) || 0)}
-                />
-            </div>
-
-            <div className="form-group">
-                <label>Max Allowable Risk (Std Dev)</label>
-                <input
-                    type="number"
-                    min={minRisk}
-                    max={1}
-                    step={0.01}
-                    value={maxRisk}
-                    onChange={e => setMaxRisk(parseFloat(e.target.value) || 0)}
-                />
-            </div>
-
-            <div>
-                <h1>Expected Return and Volatility</h1>
-                <p>{expected_return}, {volatility}, {minRisk}</p>
-            </div>
-
-            {warning && <div className="warning">{warning}</div>}
-            {error && <div className="error">{error}</div>}
         </div>
     );
 }
