@@ -141,6 +141,7 @@ def optimize_portfolio(tickers, date, max_weight, max_risk):
     }
 
 # Example usage:
+'''
 if __name__ == "__main__":
     test_tickers = [
     'AAPL',  # Apple (Technology)
@@ -160,3 +161,4 @@ if __name__ == "__main__":
     'MA'     # Mastercard (Financials)
     ]   
     print(optimize_portfolio(test_tickers, '2025-05-25', 1, 1))
+'''
