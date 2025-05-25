@@ -4,8 +4,10 @@
     --card: #ffffff;
     --text: #2f3640;
     --muted: #555;
+    --remove: #c12323;
     --error: #e84118;
     --warning: #f39c12;
+    --font: sans-serif;
 }
 
 body {
@@ -70,6 +72,26 @@ input[type="number"] {
 
 .submit-btn:hover:not(:disabled) {
     background: #007bb5;
+}
+
+.remove-btn {
+    font: var(--font);
+    font-size: 0.85rem;
+    height: 25px;
+    margin: 0 auto;
+    display: inline-block;
+    vertical-align: middle;
+    background: var(--remove);
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    float: right;
+}
+
+.remove-btn:hover {
+    background: #ff6363;
 }
 
 .stocks-list {

@@ -11,6 +11,7 @@ export async function getInfo(ticker) {
     return {
         ticker,
         price: info.regularMarketPrice ?? info.currentPrice ?? 0,
+        name: info.shortName ?? info.longName ?? ticker,
         sector: info.sector ?? 'N/A',
         industry: info.industry ?? 'N/A',
     };
