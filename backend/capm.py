@@ -1,6 +1,7 @@
 import yfinance as yf
 import numpy as np
 from scipy.optimize import minimize
+from functools import lru_cache
 
 
 def get_beta(ticker):
