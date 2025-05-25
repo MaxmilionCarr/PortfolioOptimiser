@@ -3,6 +3,10 @@ import numpy as np
 from scipy.optimize import minimize
 from functools import lru_cache
 
+## Optimise portfolio based on industry % allocation by
+## Optimising portfolios for each industry then * by % allocatoin
+
+
 # Global cache for tickers info
 _tickers_info_cache = None
 
