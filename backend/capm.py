@@ -133,7 +133,7 @@ def optimize_portfolio(tickers, date, max_weight, max_risk):
     exp_return, vol = portfolio_performance(weights, exp_returns, cov_matrix)
     return {
         "tickers": list(tickers),
-        "weights": [float(w) for w in weights],
+        "weights": [round(float(w), 2) for w in weights],
         "expected_return": round(float(exp_return), 6),
         "volatility": round(float(vol), 6),
         "sharpe_ratio": round(float(sharpe), 6),
@@ -160,5 +160,5 @@ if __name__ == "__main__":
     'DIS',   # Disney (Communication Services)
     'MA'     # Mastercard (Financials)
     ]   
-    print(optimize_portfolio(test_tickers, '2025-05-25', 1, 1))
+    print(optimize_portfolio(test_tickers, '2025-05-25', 0.4, 0.6))
 '''
