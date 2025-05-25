@@ -3,93 +3,160 @@ import numpy as np
 from scipy.optimize import minimize
 from functools import lru_cache
 
+# Global cache for tickers info
+_tickers_info_cache = None
 
-def get_beta(ticker):
-    info = yf.Ticker(ticker).info
-    return info.get("beta", 1)  # Default to 1 if beta is not available
+def get_all_info(tickers):
+    """
+    Fetch and cache info for all tickers in one go.
+    Accepts any iterable of ticker strings.
+    """
+    global _tickers_info_cache
+    tickers_list = list(tickers)
+    cache_key = tuple(tickers_list)
+    if _tickers_info_cache is None or _tickers_info_cache[0] != cache_key:
+        yf_tickers = yf.Tickers(tickers_list)
+        info_dict = {t: yf_tickers.tickers[t].info for t in tickers_list}
+        _tickers_info_cache = (cache_key, info_dict)
+    return _tickers_info_cache[1]
 
+
+@lru_cache(maxsize=1)
 def get_risk_free_rate():
+    """
+    Retrieve the most recent 1-day IRX close as the risk-free rate.
+    """
     irx = yf.Ticker('^IRX')
-    rate = irx.history(period='1d')['Close'].iloc[-1] # Check the accuracy on this !Important
+    rate = irx.history(period='1d')['Close'].iloc[-1]
     return rate / 100
 
-def optimize_portfolio(tickers, date, max_weight, max_risk):
-    start = str(int(date.split('-')[0]) - 5) + '-' + ('-').join(date.split('-')[1:])
 
-    try:
-        raw_data = yf.download(tickers, start, date)
-        raw_market = yf.download(['SPY'], start, date)
+def fetch_data(tickers, start, end):
+    """
+    Download adjusted close prices for tickers + SPY and return their daily returns.
+    """
+    data = yf.download(tickers + ['SPY'], start=start, end=end)['Close']
+    returns = data.pct_change().dropna()
+    return returns[tickers], returns['SPY']
 
-    except Exception as e:
-        return {'error': str(e)}
 
-    # Market Returns
-    market_data = raw_market['Close']
-    market_returns = market_data.pct_change().dropna()
-    market_return = (market_returns.mean() * 252)['SPY']
+def compute_inputs(returns, market_returns):
+    """
+    Compute annualized covariance matrix, expected returns (via CAPM), and risk-free rate.
+    """
+    cov_matrix = returns.cov() * 252
+    market_return = market_returns.mean() * 252
+    rf = get_risk_free_rate()
+    info = get_all_info(returns.columns)
+    betas = [info[t].get('beta', 1) for t in returns.columns]
+    exp_returns = rf + np.array(betas) * (market_return - rf)
+    return cov_matrix, exp_returns, rf
 
-    # Riskfree
-    risk_free_rate = get_risk_free_rate()
-    
-    # Ticker Data
-    ticker_data = raw_data['Close']
-    returns = ticker_data.pct_change().dropna()
-    cov_matrix = returns.cov() * 252  # annualize
 
-    # Calculate expected returns of each stock using CAPM
-    expected_returns = []
-    for ticker in tickers:
-        beta = get_beta(ticker)
-        expected_return = risk_free_rate + beta * (market_return - risk_free_rate)
-        expected_returns.append(expected_return)
+def portfolio_performance(weights, exp_returns, cov_matrix):
+    """
+    Calculate portfolio return and volatility given weights.
+    """
+    port_return = np.dot(weights, exp_returns)
+    port_vol = np.sqrt(weights.T.dot(cov_matrix).dot(weights))
+    return port_return, port_vol
 
-    expected_returns = np.array(expected_returns)
 
-    num_assets = len(tickers)
-    init_guess = [1 / num_assets] * num_assets
-    bounds = [(0, max_weight)] * num_assets
-    constraints = ({'type': 'eq', 'fun': lambda w: np.sum(w) - 1})
+def min_variance(weights, exp_returns, cov_matrix):
+    return portfolio_performance(weights, exp_returns, cov_matrix)[1]
 
-    def negative_sharpe(weights):
-        port_return, port_vol = portfolio_perf(weights)
-        return -port_return / port_vol
-    
-    def portfolio_perf(weights):
-        port_return = np.dot(weights, expected_returns)
-        port_vol = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
-        return port_return, port_vol
-    
-    min_vol_result = minimize(
-        lambda w: np.sqrt(np.dot(w.T, np.dot(cov_matrix, w))),
-        x0=init_guess,
+
+def negative_sharpe(weights, exp_returns, cov_matrix):
+    ret, vol = portfolio_performance(weights, exp_returns, cov_matrix)
+    rf = get_risk_free_rate()
+    return - (ret - rf) / vol
+
+
+def optimize_weights(tickers, cov_matrix, exp_returns, max_weight, max_risk):
+    """
+    Solve for weights that first minimize volatility and then maximize Sharpe ratio
+    under constraints. Always returns a sharpe value, even if risk constraint is violated.
+    """
+    n = len(tickers)
+    bounds = [(0, max_weight)] * n
+    constraints = [
+        {'type': 'eq', 'fun': lambda w: np.sum(w) - 1},
+        {'type': 'ineq', 'fun': lambda w: max_risk - np.sqrt(w.T.dot(cov_matrix).dot(w))}
+    ]
+    x0 = np.ones(n) / n
+
+    # 1) Minimum-volatility portfolio
+    minvol_res = minimize(
+        fun=min_variance,
+        x0=x0,
+        args=(exp_returns, cov_matrix),
+        method='SLSQP',
+        bounds=bounds,
+        constraints=[{'type': 'eq', 'fun': lambda w: np.sum(w) - 1}]
+    )
+    w_minvol = minvol_res.x
+    min_vol = np.sqrt(w_minvol.T.dot(cov_matrix).dot(w_minvol))
+
+    # Ensure we have RF for sharpe computation
+    rf = get_risk_free_rate()
+    # Compute Sharpe for min-vol portfolio
+    ret_minvol = np.dot(w_minvol, exp_returns)
+    sharpe_minvol = (ret_minvol - rf) / min_vol
+
+    # If min-vol exceeds max_risk, return min-vol weights and its Sharpe
+    if min_vol > max_risk:
+        return w_minvol, min_vol, sharpe_minvol
+
+    # 2) Maximum Sharpe ratio portfolio
+    sharpe_res = minimize(
+        fun=negative_sharpe,
+        x0=w_minvol,
+        args=(exp_returns, cov_matrix),
         method='SLSQP',
         bounds=bounds,
         constraints=constraints
     )
+    w_sharpe = sharpe_res.x
+    sharpe_value = -sharpe_res.fun
 
-    if not min_vol_result.success:
-        return {'error': 'Minimum volatility check failed'}
+    return w_sharpe, min_vol, sharpe_value
 
-    min_vol = min_vol_result.fun
-    if max_risk > 0 and max_risk < min_vol:
-        return {"min_vol": min_vol}
 
-    result = minimize(negative_sharpe, init_guess, method='SLSQP', bounds=bounds, constraints=constraints)
-
-    if not result.success:
-        return {'error': 'Optimization failed'}
-    
-    opt_weights = result.x
-    opt_return, opt_vol = portfolio_perf(opt_weights)
-
+def optimize_portfolio(tickers, date, max_weight, max_risk):
+    year, month, day = date.split('-')
+    start = f"{int(year) - 5}-{month}-{day}"
+    returns, market = fetch_data(list(tickers), start, date)
+    cov_matrix, exp_returns, rf = compute_inputs(returns, market)
+    weights, min_vol, sharpe = optimize_weights(
+        tickers, cov_matrix, exp_returns, max_weight, max_risk
+    )
+    exp_return, vol = portfolio_performance(weights, exp_returns, cov_matrix)
     return {
         "tickers": list(tickers),
-        "weights": list([x.item() for x in opt_weights]),
-        "expected_return": round(opt_return, 4).item(),
-        "volatility": round(opt_vol, 4).item(),
-        "sharpe_ratio": round(opt_return / opt_vol, 4).item(),
-        "min_vol": min_vol
+        "weights": [float(w) for w in weights],
+        "expected_return": round(float(exp_return), 6),
+        "volatility": round(float(vol), 6),
+        "sharpe_ratio": round(float(sharpe), 6),
+        "min_volatility": round(float(min_vol), 6)
     }
 
-# Tester
-# print(optimize_portfolio(['NVDA', 'SHOP', 'AAPL', 'RKLB'], '2025-05-25', 1, 1))
+# Example usage:
+if __name__ == "__main__":
+    test_tickers = [
+    'AAPL',  # Apple (Technology)
+    'MSFT',  # Microsoft (Technology)
+    'GOOGL', # Alphabet (Communication Services)
+    'AMZN',  # Amazon (Consumer Discretionary)
+    'JNJ',   # Johnson & Johnson (Healthcare)
+    'JPM',   # JPMorgan Chase (Financials)
+    'XOM',   # Exxon Mobil (Energy)
+    'PG',    # Procter & Gamble (Consumer Staples)
+    'NVDA',  # Nvidia (Technology)
+    'TSLA',  # Tesla (Consumer Discretionary)
+    'V',     # Visa (Financials)
+    'KO',    # Coca-Cola (Consumer Staples)
+    'PFE',   # Pfizer (Healthcare)
+    'DIS',   # Disney (Communication Services)
+    'MA'     # Mastercard (Financials)
+    ]   
+    print(optimize_portfolio(test_tickers, '2025-05-25', 1, 1))
