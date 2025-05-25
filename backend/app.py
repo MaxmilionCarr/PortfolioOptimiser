@@ -1,10 +1,10 @@
 # app.py
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
+import os
+
 import historical_average as historical
 import capm
-import fetchinfo as fi
-import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 REACT_BUILD_DIR = os.path.join(BASE_DIR, '../frontend/build')
@@ -14,27 +14,51 @@ CORS(app)
 
 @app.route('/api/optimize', methods=['POST'])
 def optimize():
+    """
+    Expects JSON:
+      {
+        "tickers": ["AAPL","MSFT",…],
+        "date": "YYYY-MM-DD",
+        "max_weight": 0.1,
+        "max_risk": 0.2
+      }
+    Returns the optimised weights + performance.
+    """
+
     data = request.get_json()
-    tickers = data.get('tickers')
+    tickers = data.get('tickers', [])
     date = data.get('date')
-    max_weight = data.get('max_weight')
-    max_risk = data.get('max_risk')
+    max_weight = data.get('max_weight', 1.0)
+    max_risk = data.get('max_risk', 1.0)
     result = capm.optimize_portfolio(tickers, date, max_weight, max_risk)
     return jsonify(result)
 
-@app.route('/api/fetch', methods=['POST'])
-def fetch():
-    data = request.get_json()
-    ticker = data.get('ticker')
-    result = fi.fetch_info(ticker)
-    return jsonify(result)
+@app.route('/api/info', methods=['POST'])
+def info():
+    """
+    Expects JSON:
+      { "ticker": "AAPL" }
+    Returns the full yfinance .info dict for that ticker,
+    pulled (and cached) via capm.get_all_info().
+    """
+    ticker = request.get_json().get('ticker')
+    if not ticker:
+        return jsonify({'error': 'No ticker provided'}), 400
+    
+    info_dict = capm.get_all_info([ticker]).get(ticker, {})
+    print(info_dict)
+    return jsonify(info_dict)
 
-@app.route('/')
-def serve_react():
-    return send_from_directory(app.static_folder, 'index.html')
-
-@app.errorhandler(404)
-def not_found(e):
+# Serve React App
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_react(path):
+    """
+    If the path matches a static asset in build/, serve it.
+    Otherwise fall back to index.html (for client‐side routing).
+    """
+    if path and os.path.exists(os.path.join(app.static_folder, path)):
+        return send_from_directory(app.static_folder, path)
     return send_from_directory(app.static_folder, 'index.html')
 
 if __name__ == '__main__':
