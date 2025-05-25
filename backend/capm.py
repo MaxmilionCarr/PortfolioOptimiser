@@ -3,10 +3,6 @@ import numpy as np
 from scipy.optimize import minimize
 from functools import lru_cache
 
-## Optimise portfolio based on industry % allocation by
-## Optimising portfolios for each industry then * by % allocatoin
-
-
 # Global cache for tickers info
 _tickers_info_cache = None
 
@@ -23,7 +19,6 @@ def get_all_info(tickers):
         info_dict = {t: yf_tickers.tickers[t].info for t in tickers_list}
         _tickers_info_cache = (cache_key, info_dict)
     return _tickers_info_cache[1]
-
 
 @lru_cache(maxsize=1)
 def get_risk_free_rate():
@@ -79,7 +74,7 @@ def negative_sharpe(weights, exp_returns, cov_matrix):
 def optimize_weights(tickers, cov_matrix, exp_returns, max_weight, max_risk):
     """
     Solve for weights that first minimize volatility and then maximize Sharpe ratio
-    under constraints. Always returns a sharpe value, even if risk constraint is violated.
+    under constraints. Always returns a sharpe value, even if risk constraint is active.
     """
     n = len(tickers)
     bounds = [(0, max_weight)] * n
@@ -101,13 +96,11 @@ def optimize_weights(tickers, cov_matrix, exp_returns, max_weight, max_risk):
     w_minvol = minvol_res.x
     min_vol = np.sqrt(w_minvol.T.dot(cov_matrix).dot(w_minvol))
 
-    # Ensure we have RF for sharpe computation
-    rf = get_risk_free_rate()
     # Compute Sharpe for min-vol portfolio
     ret_minvol = np.dot(w_minvol, exp_returns)
-    sharpe_minvol = (ret_minvol - rf) / min_vol
+    sharpe_minvol = (ret_minvol - get_risk_free_rate()) / min_vol
 
-    # If min-vol exceeds max_risk, return min-vol weights and its Sharpe
+    # If min-vol exceeds max_risk, return early with min-vol Sharpe
     if min_vol > max_risk:
         return w_minvol, min_vol, sharpe_minvol
 
@@ -127,6 +120,9 @@ def optimize_weights(tickers, cov_matrix, exp_returns, max_weight, max_risk):
 
 
 def optimize_portfolio(tickers, date, max_weight, max_risk):
+    """
+    Main entry point. Orchestrates data fetching, input computation, and optimization.
+    """
     year, month, day = date.split('-')
     start = f"{int(year) - 5}-{month}-{day}"
     returns, market = fetch_data(list(tickers), start, date)
@@ -137,32 +133,38 @@ def optimize_portfolio(tickers, date, max_weight, max_risk):
     exp_return, vol = portfolio_performance(weights, exp_returns, cov_matrix)
     return {
         "tickers": list(tickers),
-        "weights": [round(float(w), 2) for w in weights],
+        "weights": [float(w) for w in weights],
         "expected_return": round(float(exp_return), 6),
         "volatility": round(float(vol), 6),
         "sharpe_ratio": round(float(sharpe), 6),
         "min_volatility": round(float(min_vol), 6)
     }
 
+
+def get_minimum_risk_portfolio(tickers, date, max_weight):
+    """
+    Compute the minimum-volatility portfolio given tickers, date, and max weight.
+    Returns the weights and the minimum volatility.
+    """
+    year, month, day = date.split('-')
+    start = f"{int(year) - 5}-{month}-{day}"
+    returns, _ = fetch_data(list(tickers), start, date)
+    cov_matrix, _, _ = compute_inputs(returns, returns)
+    weights, min_vol, _ = optimize_weights(
+        tickers, cov_matrix, np.zeros(len(tickers)), max_weight, max_risk=float('inf')
+    )
+    return {
+        "weights": [float(w) for w in weights],
+        "min_volatility": round(float(min_vol), 6)
+    }
+
+
+def get_minimum_volatility(tickers, date, max_weight):
+    """
+    Alias to get_minimum_risk_portfolio for a direct call to retrieve minimum volatility.
+    """
+    return get_minimum_risk_portfolio(tickers, date, max_weight)
+
 # Example usage:
-'''
-if __name__ == "__main__":
-    test_tickers = [
-    'AAPL',  # Apple (Technology)
-    'MSFT',  # Microsoft (Technology)
-    'GOOGL', # Alphabet (Communication Services)
-    'AMZN',  # Amazon (Consumer Discretionary)
-    'JNJ',   # Johnson & Johnson (Healthcare)
-    'JPM',   # JPMorgan Chase (Financials)
-    'XOM',   # Exxon Mobil (Energy)
-    'PG',    # Procter & Gamble (Consumer Staples)
-    'NVDA',  # Nvidia (Technology)
-    'TSLA',  # Tesla (Consumer Discretionary)
-    'V',     # Visa (Financials)
-    'KO',    # Coca-Cola (Consumer Staples)
-    'PFE',   # Pfizer (Healthcare)
-    'DIS',   # Disney (Communication Services)
-    'MA'     # Mastercard (Financials)
-    ]   
-    print(optimize_portfolio(test_tickers, '2025-05-25', 0.4, 0.6))
-'''
+# if __name__ == "__main__":
+#     print(get_minimum_volatility(['NVDA', 'SHOP', 'AAPL'], '2025-05-25', 0.3))
