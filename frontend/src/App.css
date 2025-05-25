@@ -1,67 +1,75 @@
+:root {
+    --primary: #0097e6;
+    --bg: #f5f6fa;
+    --card: #ffffff;
+    --text: #2f3640;
+    --muted: #555;
+    --error: #e84118;
+    --warning: #f39c12;
+}
+
 body {
     margin: 0;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: #f5f6fa;
+    background: var(--bg);
+    color: var(--text);
 }
 
 .app-container {
-    max-width: 700px;
-    margin: 3rem auto;
-    background: #fff;
-    padding: 2rem 3rem;
-    border-radius: 10px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+    max-width: 800px;
+    margin: 2rem auto;
+    background: var(--card);
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
 }
 
-.header {
+h1 {
     text-align: center;
-    color: #2f3640;
-    margin-bottom: 1rem;
-}
-
-.form-group {
     margin-bottom: 1.5rem;
 }
 
-label {
-    font-weight: bold;
-    margin-bottom: 0.5rem;
-    display: block;
+.form-group {
+    margin-bottom: 1.25rem;
 }
 
-.ticker-input {
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.input-row {
     display: flex;
     gap: 0.5rem;
 }
 
 input[type="text"],
-input[type="date"],
-input[type="number"],
-input[type="range"] {
+input[type="number"] {
     flex: 1;
-    padding: 0.6rem;
+    padding: 0.5rem;
     font-size: 1rem;
-    border: 1px solid #dcdde1;
-    border-radius: 5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
 }
 
-button {
-    background: #0097e6;
+.submit-btn {
+    background: var(--primary);
     color: #fff;
     border: none;
-    padding: 0.7rem 1.2rem;
-    border-radius: 5px;
+    padding: 0.6rem 1.2rem;
+    border-radius: 4px;
     cursor: pointer;
-    transition: filter 0.2s;
+    transition: background 0.2s ease;
 }
 
-button:disabled {
-    background: #ccc;
+.submit-btn:disabled {
+    opacity: 0.6;
     cursor: not-allowed;
 }
 
-button:not(:disabled):hover {
-    filter: brightness(0.9);
+.submit-btn:hover:not(:disabled) {
+    background: #007bb5;
 }
 
 .stocks-list {
@@ -69,37 +77,36 @@ button:not(:disabled):hover {
 }
 
 .stock-item {
-    display: flex;
-    justify-content: space-between;
     padding: 0.5rem 0;
     border-bottom: 1px solid #eee;
 }
 
-.subtext {
+.stock-item span {
+    color: var(--muted);
     font-size: 0.9rem;
-    color: #666;
+    margin-left: 0.5rem;
+}
+
+.button-container {
+    text-align: right;
+    margin-top: 1rem;
+}
+
+.error,
+.warning {
+    padding: 0.75rem;
+    border-radius: 4px;
+    margin-top: 0.5rem;
 }
 
 .error {
-    color: #e84118;
-    background: #fddede;
-    padding: 0.6rem;
-    border-radius: 5px;
-    margin-bottom: 1rem;
+    background: #fdecea;
+    color: var(--error);
 }
 
 .warning {
-    color: #e1b12c;
-    background: #fef9e7;
-    padding: 0.6rem;
-    border-radius: 5px;
-    margin-bottom: 1rem;
-}
-
-.run-btn {
-    display: block;
-    width: 100%;
-    margin: 1rem 0;
+    background: #fff4e5;
+    color: var(--warning);
 }
 
 .results {
@@ -108,29 +115,31 @@ button:not(:disabled):hover {
 
 .metrics {
     display: flex;
-    justify-content: space-between;
-    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1rem;
 }
 
-.metric h2 {
-    margin: 0;
-    font-size: 1rem;
-    color: #353b48;
+.metric {
+    background: #ecf0f1;
+    padding: 0.75rem 1rem;
+    border-radius: 4px;
+    flex: 1;
+    text-align: center;
 }
 
-.metric p {
-    font-size: 1.2rem;
-    margin: 0.3rem 0 0;
-}
-
-.results-table {
+table {
     width: 100%;
     border-collapse: collapse;
 }
 
-.results-table th,
-.results-table td {
-    border: 1px solid #dcdde1;
-    padding: 0.6rem;
-    text-align: center;
+th,
+td {
+    text-align: left;
+    padding: 0.75rem;
+    border-bottom: 1px solid #ddd;
+}
+
+th {
+    background: #f0f0f0;
 }
