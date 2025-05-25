@@ -46,8 +46,25 @@ def info():
         return jsonify({'error': 'No ticker provided'}), 400
     
     info_dict = capm.get_all_info([ticker]).get(ticker, {})
-    print(info_dict)
     return jsonify(info_dict)
+
+@app.route('/api/minimum', methods=['POST'])
+def minimum_volatility():
+    """
+    Expects JSON:
+      {
+        "tickers": ["AAPL","MSFT",…],
+        "date": "YYYY-MM-DD",
+        "max_weight": 0.1,
+      }
+    Returns the minimum risk of portfolio.
+    """
+    data = request.get_json()
+    tickers = data['tickers']
+    date = data['date']
+    max_weight = data['max_weight']
+    min_vol = capm.get_minimum_volatility(tickers, date, max_weight)
+    return jsonify(min_vol)
 
 # Serve React App
 @app.route('/', defaults={'path': ''})
