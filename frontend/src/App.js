@@ -7,16 +7,17 @@ import SliderInput from './components/SliderInput';
 
 function App() {
     // --- State hooks ---
-    const [stocks, setStocks]             = useState([]);    // { ticker, price, sector, industry }
-    const [input, setInput]               = useState('');
-    const [maxWeight, setMaxWeight]       = useState(1);
-    const [maxRisk, setMaxRisk]           = useState(1);
-    const [minVol, setMinVol]             = useState(0);
-    const [results, setResults]           = useState(null);
-    const [loading, setLoading]           = useState(false);
-    const [error, setError]               = useState('');
+    const [stocks, setStocks] = useState([]);    // { ticker, price, sector, industry }
+    const [input, setInput] = useState('');
+    const [type, setType] = useState('capm')
+    const [maxWeight, setMaxWeight] = useState(1);
+    const [maxRisk, setMaxRisk] = useState(1);
+    const [minVol, setMinVol] = useState(0);
+    const [results, setResults] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
     const [weightWarning, setWeightWarning] = useState('');
-    const [riskWarning, setRiskWarning]     = useState('');
+    const [riskWarning, setRiskWarning] = useState('');
 
     // Fix the date once per session
     const date = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -85,13 +86,13 @@ function App() {
         setStocks(old => old.filter(s => s.ticker !== ticker));
     };
 
-    // Run the full CAPM optimization
+    // Run the full optimization
     const runOptimize = async () => {
         setError('');
         setLoading(true);
         try {
             const tickers = stocks.map(s => s.ticker);
-            const out = await optimize({ tickers, date, maxWeight, maxRisk });
+            const out = await optimize({ type, tickers, date, maxWeight, maxRisk });
             setResults(out);
         } catch {
             setError('Optimization failed');
@@ -141,6 +142,28 @@ function App() {
                     </div>
                 ))}
             </div>
+            {/* --- Model Toggle --- */}
+            <div className="form-group pill-toggle-group">
+                {/* Description above */}
+                <div className="pill-toggle-label">
+                    {type === 'historical'
+                        ? 'Using Historical Data'
+                        : 'Using Forward-Looking (CAPM)'}
+                </div>
+
+                {/* The pill switch */}
+                <label className="pill-toggle">
+                    <input
+                        type="checkbox"
+                        checked={type === 'historical'}
+                        onChange={e =>
+                            setType(e.target.checked ? 'historical' : 'capm')
+                        }
+                    />
+                    <span className="pill-slider" />
+                </label>
+            </div>
+
 
             {/* Max weight slider */}
             <div className="form-group">
