@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/PortfolioOptimiser/static/css/main.53c5cbf6.css",
+    "main.js": "/PortfolioOptimiser/static/js/main.a0182703.js",
+    "index.html": "/PortfolioOptimiser/index.html",
+    "main.53c5cbf6.css.map": "/PortfolioOptimiser/static/css/main.53c5cbf6.css.map",
+    "main.a0182703.js.map": "/PortfolioOptimiser/static/js/main.a0182703.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.53c5cbf6.css",
+    "static/js/main.a0182703.js"
+  ]
+}
