@@ -26,11 +26,15 @@ def optimize():
     """
 
     data = request.get_json()
+    type = data.get('type')
     tickers = data.get('tickers', [])
     date = data.get('date')
     max_weight = data.get('max_weight', 1.0)
     max_risk = data.get('max_risk', 1.0)
-    result = capm.optimize_portfolio(tickers, date, max_weight, max_risk)
+    if (type == 'capm'):
+        result = capm.optimize_portfolio(tickers, date, max_weight, max_risk)
+    else:
+      result = historical.optimize_portfolio(tickers, date, max_weight, max_risk)
     return jsonify(result)
 
 @app.route('/api/info', methods=['POST'])
