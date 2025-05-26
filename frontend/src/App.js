@@ -1,40 +1,77 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { getInfo } from './api/fetchInfo';
 import { optimize } from './api/optimize';
+import { getMin } from './api/minimumVolatility';
 import './App.css';
+import SliderInput from './components/SliderInput';
 
 function App() {
-    const [stocks, setStocks] = useState([]);         // {ticker, price, sector, industry}
-    const [input, setInput] = useState('');
-    const [maxWeight, setMaxWeight] = useState(1);
-    const [maxRisk, setMaxRisk] = useState(1);
-    const [results, setResults] = useState(null);     // full JSON from optimize()
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [warning, setWarning] = useState('');
+    // --- State hooks ---
+    const [stocks, setStocks]             = useState([]);    // { ticker, price, sector, industry }
+    const [input, setInput]               = useState('');
+    const [maxWeight, setMaxWeight]       = useState(1);
+    const [maxRisk, setMaxRisk]           = useState(1);
+    const [minVol, setMinVol]             = useState(0);
+    const [results, setResults]           = useState(null);
+    const [loading, setLoading]           = useState(false);
+    const [error, setError]               = useState('');
+    const [weightWarning, setWeightWarning] = useState('');
+    const [riskWarning, setRiskWarning]     = useState('');
+
+    // Fix the date once per session
+    const date = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
     // Warn if maxWeight < 1/#stocks
     useEffect(() => {
         if (stocks.length) {
             const minW = 1 / stocks.length;
-            setWarning(
+            setWeightWarning(
                 maxWeight < minW
                     ? `Max weight too low; minimum is ${minW.toFixed(3)}`
                     : ''
             );
+        } else {
+            setWeightWarning('');
         }
     }, [stocks, maxWeight]);
 
-    // Add a ticker & fetch its price/sector/industry
-    const addTicker = async () => {
-        const sym = input.trim().toUpperCase();
-        if (!sym) return;
-        if (stocks.some(s => s.ticker === sym)) {
-            setError(`’${sym}’ already added`);
+    // Fetch minimum volatility whenever stocks, date, maxWeight or maxRisk change
+    useEffect(() => {
+        if (!stocks.length) {
+            setMinVol(0);
+            setRiskWarning('');
             return;
         }
-        setError('');
+        const tickers = stocks.map(s => s.ticker);
+        getMin({ tickers, date, maxWeight })
+            .then(data => {
+                setMinVol(data.min_volatility);
+                if (maxRisk < data.min_volatility) {
+                    setRiskWarning(`Max risk too low; minimum is ${data.min_volatility.toFixed(3)}`);
+                } else {
+                    setRiskWarning('');
+                }
+            })
+            .catch(err => {
+                console.error("Failed to fetch min volatility", err);
+                setMinVol(0);
+                setRiskWarning('');
+            });
+    }, [stocks, date, maxWeight, maxRisk]);
+
+    // Add a new ticker
+    const addTicker = async () => {
+        const sym = input.trim().toUpperCase();
+        if (!sym) {
+            setError("Ticker can't be empty");
+            return;
+        }
+        if (stocks.some(s => s.ticker === sym)) {
+            setError(`${sym} already added`);
+            return;
+        }
         try {
+            setError('');
             const info = await getInfo(sym);
             setStocks(prev => [...prev, info]);
             setInput('');
@@ -43,13 +80,17 @@ function App() {
         }
     };
 
-    // Run your CAPM optimizer
+    // Remove a ticker
+    const removeTicker = ticker => {
+        setStocks(old => old.filter(s => s.ticker !== ticker));
+    };
+
+    // Run the full CAPM optimization
     const runOptimize = async () => {
         setError('');
         setLoading(true);
         try {
             const tickers = stocks.map(s => s.ticker);
-            const date = new Date().toISOString().slice(0, 10);
             const out = await optimize({ tickers, date, maxWeight, maxRisk });
             setResults(out);
         } catch {
@@ -63,6 +104,7 @@ function App() {
         <div className="app-container">
             <h1>Portfolio Optimizer</h1>
 
+            {/* Ticker input */}
             <div className="form-group">
                 <label>New Stock Ticker</label>
                 <div className="input-row">
@@ -70,62 +112,81 @@ function App() {
                         type="text"
                         value={input}
                         onChange={e => setInput(e.target.value)}
-                        placeholder="e.g. AAPL"
                         onKeyDown={e => e.key === 'Enter' && addTicker()}
+                        placeholder="e.g. AAPL"
                     />
-                    <button onClick={addTicker} className="submit-btn">
+                    <button
+                        onClick={addTicker}
+                        className="submit-btn"
+                        disabled={
+                            !input.trim() ||
+                            stocks.some(s => s.ticker === input.trim().toUpperCase())
+                        }
+                    >
                         Add
                     </button>
                 </div>
             </div>
 
+            {/* List of added stocks */}
             <div className="stocks-list">
                 {stocks.length === 0 && <p>No stocks yet.</p>}
                 {stocks.map((s, i) => (
                     <div key={i} className="stock-item">
-                        <strong>{s.ticker}</strong> — ${s.price.toFixed(2)}{' '}
+                        <strong>{s.ticker} ({s.name})</strong> — ${s.price.toFixed(2)}{' '}
                         <span>({s.sector}, {s.industry})</span>
+                        <button className="remove-btn" onClick={() => removeTicker(s.ticker)}>
+                            Remove
+                        </button>
                     </div>
                 ))}
             </div>
 
+            {/* Max weight slider */}
             <div className="form-group">
-                <label>Max Weight per Stock</label>
-                <input
-                    type="number"
+                <SliderInput
+                    label="Max Weight per Stock"
                     min={0}
                     max={1}
-                    step={0.01}
+                    step={0.05}
                     value={maxWeight}
-                    onChange={e => setMaxWeight(parseFloat(e.target.value) || 0)}
+                    onChange={setMaxWeight}
                 />
             </div>
 
+            {/* Max risk slider, driven by fetched minimum volatility */}
             <div className="form-group">
-                <label>Max Allowable Risk (Std Dev)</label>
-                <input
-                    type="number"
+                <SliderInput
+                    label="Max Allowable Risk"
                     min={0}
                     max={1}
                     step={0.01}
                     value={maxRisk}
-                    onChange={e => setMaxRisk(parseFloat(e.target.value) || 0)}
+                    onChange={setMaxRisk}
                 />
+                {minVol > 0 && (
+                    <small className="hint">
+                        Minimum possible volatility: {minVol.toFixed(3)}
+                    </small>
+                )}
             </div>
 
-            {(warning || error) && (
+            {/* Display warnings or errors */}
+            {(error || weightWarning || riskWarning) && (
                 <div className={error ? 'error' : 'warning'}>
-                    {error || warning}
+                    {error || weightWarning || riskWarning}
                 </div>
             )}
 
+            {/* Run optimization */}
             <div className="button-container">
                 <button
                     onClick={runOptimize}
                     disabled={
                         loading ||
                         !stocks.length ||
-                        Boolean(warning)
+                        Boolean(weightWarning) ||
+                        Boolean(riskWarning)
                     }
                     className="submit-btn"
                 >
@@ -133,39 +194,27 @@ function App() {
                 </button>
             </div>
 
+            {/* Display results */}
             {results && (
                 <div className="results">
                     <h2>Metrics</h2>
                     <div className="metrics">
-                        <div className="metric">
-                            Sharpe Ratio: {results.sharpe_ratio.toFixed(3)}
-                        </div>
-                        <div className="metric">
-                            Exp. Return: {results.expected_return.toFixed(3)}
-                        </div>
-                        <div className="metric">
-                            Volatility: {results.volatility.toFixed(3)}
-                        </div>
-                        <div className="metric">
-                            Min Volatility: {results.min_volatility.toFixed(3)}
-                        </div>
+                        <div className="metric">Sharpe Ratio: {results.sharpe_ratio.toFixed(3)}</div>
+                        <div className="metric">Exp. Return: {results.expected_return.toFixed(3)}</div>
+                        <div className="metric">Volatility: {results.volatility.toFixed(3)}</div>
+                        <div className="metric">Min Volatility: {results.min_volatility.toFixed(3)}</div>
                     </div>
 
                     <h2>Weights</h2>
                     <table>
                         <thead>
-                        <tr>
-                            <th>Ticker</th>
-                            <th>Weight</th>
-                        </tr>
+                        <tr><th>Ticker</th><th>Weight</th></tr>
                         </thead>
                         <tbody>
                         {results.tickers.map((t, i) => (
                             <tr key={t}>
                                 <td>{t}</td>
-                                <td>
-                                    {(results.weights[i] * 100).toFixed(2)}%
-                                </td>
+                                <td>{(results.weights[i] * 100).toFixed(2)}%</td>
                             </tr>
                         ))}
                         </tbody>
