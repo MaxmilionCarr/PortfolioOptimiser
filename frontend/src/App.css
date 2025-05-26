@@ -94,6 +94,7 @@ input[type="number"] {
     background: #ff6363;
 }
 
+
 .stocks-list {
     margin-bottom: 1.5rem;
 }
@@ -112,6 +113,59 @@ input[type="number"] {
 .button-container {
     text-align: right;
     margin-top: 1rem;
+}
+
+/* Container around label + toggle */
+.pill-toggle-group {
+    display: inline-block;      /* shrink to content */
+    text-align: left;         /* center both label & pill */
+    margin: 1rem 0;
+}
+
+/* Text above the pill */
+.pill-toggle-label {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #333;
+}
+
+/* Hide the native checkbox */
+.pill-toggle input {
+    display: none;
+}
+
+/* The outer “pill” */
+.pill-toggle .pill-slider {
+    position: relative;
+    display: inline-block;
+    width: 52px;
+    height: 28px;
+    background: #ccc;
+    border-radius: 14px;
+    transition: background 0.3s;
+    cursor: pointer;
+}
+
+/* The knob */
+.pill-toggle .pill-slider::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 2px;
+    width: 24px;
+    height: 24px;
+    background: #fff;
+    border-radius: 50%;
+    transform: translate(0, -50%);
+    transition: transform 0.3s;
+}
+
+/* Checked state */
+.pill-toggle input:checked + .pill-slider {
+    background: #4caf50;
+}
+.pill-toggle input:checked + .pill-slider::before {
+    transform: translate(23px, -50%);
 }
 
 .error,
@@ -165,3 +219,6 @@ td {
 th {
     background: #f0f0f0;
 }
+
+
+
