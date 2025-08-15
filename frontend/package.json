@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "homepage": "https://maxmilioncarr.github.io/PortfolioOptimiser",
+  "homepage": "https://MaxmilionCarr.github.io/PortfolioOptimiser",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
@@ -43,7 +43,7 @@
       "last 1 safari version"
     ]
   },
-  "proxy": "http://localhost:5000"
+  "proxy": "http://localhost:5000",
   "devDependencies": {
     "gh-pages": "^5.0.0"
   }
