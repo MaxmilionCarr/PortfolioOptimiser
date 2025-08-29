@@ -33,6 +33,9 @@ CORS(app,
          "supports_credentials": False  # set True only if you use cookies/auth headers across origins
      }})
 # --------------------
+@app.get("/api/health")
+def health():
+    return {"ok": True}
 
 @app.route('/api/optimize', methods=['POST'])
 def optimize():
