@@ -34,7 +34,9 @@ jobs:
         working-directory: frontend
         env:
           REACT_APP_API_BASE_URL: ${{ vars.REACT_APP_API_BASE_URL }}
-        run: npm run build
+        run:  |
+          echo "API=${REACT_APP_API_BASE_URL}"
+          npm run build
 
       # SPA deep-link fix (BrowserRouter)
       - name: Add SPA 404 fallback
