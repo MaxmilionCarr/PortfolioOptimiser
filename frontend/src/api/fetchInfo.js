@@ -1,5 +1,16 @@
 import axios from 'axios';
-const API = process.env.REACT_APP_API_BASE_URL || '';
+
+export const API = process.env.REACT_APP_API_BASE_URL ||
+                    (process.env.NODE_ENV !== 'production' ? 'http://127.0.0.1:8000' : null);
+
+if (!API) {
+    throw new Error("REACT_APP_API_BASE_URL must be set in production");
+}
+
+if (typeof window !== 'undefined') window.__API_BASE__ = API;
+
+const client = axios.create({ baseURL: API});
+export default client;
 
 /**
  * Hit your Flask route @app.route('/api/info') :contentReference[oaicite:0]{index=0}
