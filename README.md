@@ -1,6 +1,7 @@
 Portfolio Optimiser
 A full-stack web application for portfolio analysis and optimisation.
 Built with a React frontend and a Flask backend, and deployed using GitHub Pages (frontend) and AWS EC2 with Nginx & Gunicorn (backend).
+Try it out here: https://portoptimiser.duckdns.org
 
 The app allows users to:
 - Input stock tickers and constraints
