@@ -14,15 +14,12 @@ app = Flask(__name__, static_folder=REACT_BUILD_DIR, static_url_path='/')
 ALLOWED_ORIGINS = [
     # GitHub Pages (user site)
     "https://MaxmilionCarr.github.io",
-    # (Optional) restrict to the repo site path isn’t necessary; origin checks ignore path:
-    # "https://maxmilioncarr.github.io/PortfolioOptimiser",
+    
 
     # Local dev (React)
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 
-    # (Later) your custom domain for the frontend, if you add one:
-    # "https://portfolio.yourdomain.com",
 ]
 
 CORS(app,
@@ -32,6 +29,7 @@ CORS(app,
          "allow_headers": ["Content-Type", "Authorization"],
          "supports_credentials": False  # set True only if you use cookies/auth headers across origins
      }})
+    
 # --------------------
 @app.get("/api/health")
 def health():
@@ -69,7 +67,7 @@ def minimum_volatility():
     min_vol = capm.get_minimum_volatility(tickers, date, max_weight)
     return jsonify(min_vol)
 
-# Serve React (only useful if you also serve frontend from Flask; safe to keep)
+# Serve React
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve_react(path):
