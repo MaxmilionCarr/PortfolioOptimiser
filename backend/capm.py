@@ -164,7 +164,3 @@ def get_minimum_volatility(tickers, date, max_weight):
     Alias to get_minimum_risk_portfolio for a direct call to retrieve minimum volatility.
     """
     return get_minimum_risk_portfolio(tickers, date, max_weight)
-
-# Example usage:
-# if __name__ == "__main__":
-#     print(get_minimum_volatility(['NVDA', 'SHOP', 'AAPL'], '2025-05-25', 0.3))
