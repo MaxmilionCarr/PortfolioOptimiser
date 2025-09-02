@@ -18,6 +18,7 @@ function App() {
     const [error, setError] = useState('');
     const [weightWarning, setWeightWarning] = useState('');
     const [riskWarning, setRiskWarning] = useState('');
+    const [allocation, setAllocation] = useState(0);
 
     // Fix the date once per session
     const date = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -74,6 +75,9 @@ function App() {
         try {
             setError('');
             const info = await getInfo(sym);
+            if (info.price instanceof Error) {
+                throw info.price;
+            }
             setStocks(prev => [...prev, info]);
             setInput('');
         } catch {
@@ -164,6 +168,17 @@ function App() {
                 </label>
             </div>
 
+            <div className="form-group">
+                <label>Allocation ($)</label>
+                <div className="input-box">
+                    <input
+                        type="number"
+                        value={allocation}
+                        onChange={e => setAllocation(Number(e.target.value))}
+                    />
+                </div>
+
+            </div>
 
             {/* Max weight slider */}
             <div className="form-group">
@@ -231,13 +246,14 @@ function App() {
                     <h2>Weights</h2>
                     <table>
                         <thead>
-                        <tr><th>Ticker</th><th>Weight</th></tr>
+                            <tr><th>Ticker</th><th>Weight</th><th>Allocation</th></tr>
                         </thead>
                         <tbody>
                         {results.tickers.map((t, i) => (
                             <tr key={t}>
                                 <td>{t}</td>
                                 <td>{(results.weights[i] * 100).toFixed(2)}%</td>
+                                <td>${(results.weights[i] * allocation).toFixed(2)}</td>
                             </tr>
                         ))}
                         </tbody>

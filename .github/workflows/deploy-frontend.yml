@@ -33,7 +33,7 @@ jobs:
       - name: Build
         working-directory: frontend
         env:
-          REACT_APP_API_BASE_URL: ${{ vars.REACT_APP_API_BASE_URL }}
+          REACT_APP_API_BASE_URL: ${{ vars.REACT_APP_API_BASE_URL || secrets.REACT_APP_API_BASE_URL }}
         run:  |
           echo "API=${REACT_APP_API_BASE_URL}"
           npm run build

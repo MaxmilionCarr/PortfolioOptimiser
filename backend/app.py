@@ -56,6 +56,12 @@ def info():
     if not ticker:
         return jsonify({'error': 'No ticker provided'}), 400
     info_dict = capm.get_all_info([ticker]).get(ticker, {})
+    try:
+        if 'regularMarketPrice' not in info_dict and 'currentPrice' not in info_dict:
+            raise KeyError("Price not found")
+    except KeyError:
+        ticker = ticker + '.AX'
+        info_dict = capm.get_all_info([ticker]).get(ticker, {})
     return jsonify(info_dict)
 
 @app.route('/api/minimum', methods=['POST'])

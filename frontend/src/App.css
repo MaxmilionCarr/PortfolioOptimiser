@@ -211,7 +211,7 @@ table {
 
 th,
 td {
-    text-align: left;
+    text-align: center;
     padding: 0.75rem;
     border-bottom: 1px solid #ddd;
 }
@@ -220,5 +220,11 @@ th {
     background: #f0f0f0;
 }
 
-
-
+.input-box input {
+    width: 10%;
+    text-align: right;
+    padding: 0.5rem;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
