@@ -1,16 +1,14 @@
-import axios from 'axios';
-const API = process.env.REACT_APP_API_BASE_URL || '';
+import { api } from "./client";
 
-/**
- * Hit Flask route @app.route('/api/optimize') :contentReference[oaicite:1]{index=1}
- */
+const mapModel = (type) => (type === "historical" ? "historical_average" : "capm");
+
 export async function optimize({ type, tickers, date, maxWeight, maxRisk }) {
-    const res = await axios.post(`${API}/api/optimize`, {
-        type: type,
-        tickers,
-        date,
-        max_weight: maxWeight,
-        max_risk: maxRisk,
-    });
-    return res.data;
+  const res = await api.post("/optimize", {
+    tickers,
+    model: mapModel(type),
+    date,
+    max_weight: maxWeight,
+    max_risk: maxRisk,
+  });
+  return res.data;
 }
